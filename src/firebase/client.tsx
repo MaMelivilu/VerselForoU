@@ -1,8 +1,15 @@
 import { initializeApp } from "firebase/app";
-import { getAuth, GithubAuthProvider, GoogleAuthProvider, signInWithPopup, signOut } from "firebase/auth";
+import { 
+  getAuth, 
+  GithubAuthProvider, 
+  GoogleAuthProvider, 
+  signInWithPopup, 
+  User, 
+  Auth 
+} from "firebase/auth";
 import { getFirestore, doc, setDoc, getDoc } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
-
+import { NextRouter } from "next/navigation"; // tipo correcto para router
 
 const firebaseConfig = {
   apiKey: "AIzaSyAil3tVwDcnX3mnXLT1zYgrYwGcEzkIe4U",
@@ -18,7 +25,7 @@ const firebaseConfig = {
 export const app = initializeApp(firebaseConfig);
 
 // Inicializar auth
-export const auth = getAuth(app);
+export const auth: Auth = getAuth(app);
 
 // Inicializar fireStore
 export const db = getFirestore(app);
@@ -26,15 +33,12 @@ export const db = getFirestore(app);
 // Inicializar Storage
 export const storage = getStorage(app);
 
-
-
 // Guardar usuario en Firestore
-async function createUserIfNotExists(user: any) {
+async function createUserIfNotExists(user: User) {
   const userRef = doc(db, "users", user.uid);
   const userSnap = await getDoc(userRef);
 
   if (!userSnap.exists()) {
-    // Si no existe, crear el documento
     await setDoc(userRef, {
       displayName: user.displayName,
       email: user.email,
@@ -42,11 +46,10 @@ async function createUserIfNotExists(user: any) {
       createdAt: new Date()
     });
   }
-  // Si ya existe, no hace nada
 }
 
 // Login con Google
-export const loginWithGoogle = async () => {
+export const loginWithGoogle = async (): Promise<User> => {
   const provider = new GoogleAuthProvider();
   const result = await signInWithPopup(auth, provider);
   await createUserIfNotExists(result.user);
@@ -54,7 +57,7 @@ export const loginWithGoogle = async () => {
 }
 
 // Login con GitHub
-export const loginWithGithub = async () => {
+export const loginWithGithub = async (): Promise<User> => {
   const provider = new GithubAuthProvider();
   const result = await signInWithPopup(auth, provider);
   await createUserIfNotExists(result.user);
@@ -62,7 +65,7 @@ export const loginWithGithub = async () => {
 }
 
 // Logout
-export const logout = async (router: any) => {
+export const logout = async (router: NextRouter) => {
   await auth.signOut();
   router.push("/");
 }

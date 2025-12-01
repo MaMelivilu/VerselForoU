@@ -1,14 +1,21 @@
-"use client"
+'use client'
 
 import { useEffect, useState } from "react"
 import { db } from "@/firebase/client"
 import { collection, query, where, onSnapshot, doc, updateDoc, deleteDoc } from "firebase/firestore"
 import { useUser } from "./useUser"
 
+interface Video {
+  id: string
+  userId: string
+  likes: string[]
+  [key: string]: any // Para otras propiedades que pueda tener el video
+}
+
 export function useSavedVideos() {
   const { user } = useUser()
-  const [myVideos, setMyVideos] = useState<any[]>([])
-  const [likedVideos, setLikedVideos] = useState<any[]>([])
+  const [myVideos, setMyVideos] = useState<Video[]>([])
+  const [likedVideos, setLikedVideos] = useState<Video[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -25,7 +32,7 @@ export function useSavedVideos() {
       setMyVideos(
         snap.docs.map((d) => ({
           id: d.id,
-          ...d.data(),
+          ...(d.data() as Omit<Video, "id">), // tipado seguro
         }))
       )
     })
@@ -36,7 +43,7 @@ export function useSavedVideos() {
       setLikedVideos(
         snap.docs.map((d) => ({
           id: d.id,
-          ...d.data(),
+          ...(d.data() as Omit<Video, "id">),
         }))
       )
       setLoading(false)

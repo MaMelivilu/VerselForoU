@@ -1,7 +1,6 @@
 'use client'
 
 import Link from "next/link"
-import { use } from "react"
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { db } from "@/firebase/client"
@@ -25,22 +24,40 @@ import VoteButton from "@/components/VoteButton"
 import SideBar from "@/components/SideBar"
 import CreateCommunityPostButton from "@/components/CreateCommunityPost"
 
-export default function CommunityFeedPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id: comunidadId } = use(params)
+// ======================
+// TIPOS CORREGIDOS
+// ======================
+export interface MediaFile {
+  url: string
+  type: "image" | "video"
+}
+
+export interface Post {
+  id: string
+  title: string
+  content: string
+  authorName: string
+  authorPhoto?: string
+  mediaFiles?: MediaFile[]
+  categories?: string[]
+  comunidadId: string
+  createdAt?: any
+}
+
+export default function CommunityFeedPage({ params }: { params: { id: string } }) {
+  const { id: comunidadId } = params
   const router = useRouter()
   const { firestoreUser, loading: userLoading } = useFirestoreUser()
   const { savedPosts, toggleSave, loading: savedLoading } = useSavedPosts()
   const { communities } = useCommunities()
 
-  const [posts, setPosts] = useState<any[]>([])
-  const [filteredPosts, setFilteredPosts] = useState<any[]>([])
+  const [posts, setPosts] = useState<Post[]>([])
+  const [filteredPosts, setFilteredPosts] = useState<Post[]>([])
   const [loadingPosts, setLoadingPosts] = useState(true)
   const [search, setSearch] = useState("")
 
-  // Seleccionar la comunidad correspondiente
   const community: Community | undefined = communities.find(c => c.id === comunidadId)
 
-  // Cargar posts de la comunidad en tiempo real
   useEffect(() => {
     const q = query(
       collection(db, "posts"),
@@ -48,9 +65,9 @@ export default function CommunityFeedPage({ params }: { params: Promise<{ id: st
       orderBy("createdAt", "desc")
     )
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const postsData = snapshot.docs.map((doc) => ({
+      const postsData: Post[] = snapshot.docs.map((doc) => ({
         id: doc.id,
-        ...(doc.data() as any),
+        ...(doc.data() as Omit<Post, "id">),
       }))
       setPosts(postsData)
       setFilteredPosts(postsData)
@@ -59,7 +76,6 @@ export default function CommunityFeedPage({ params }: { params: Promise<{ id: st
     return () => unsubscribe()
   }, [comunidadId])
 
-  // Búsqueda local
   useEffect(() => {
     const queryStr = search.trim().toLowerCase()
     if (!queryStr) {
@@ -76,14 +92,14 @@ export default function CommunityFeedPage({ params }: { params: Promise<{ id: st
       .filter((q) => !q.startsWith("#"))
       .join(" ")
 
-    const filtered = posts.filter((post: any) => {
+    const filtered = posts.filter((post) => {
       const titleMatch = textQuery
         ? post.title.toLowerCase().includes(textQuery)
         : true
 
       const categoriesMatch = categoriesQuery.length
         ? categoriesQuery.every((cat) =>
-            (post.categories || []).some((c: string) =>
+            (post.categories || []).some((c) =>
               c.toLowerCase().startsWith(cat)
             )
           )
@@ -112,7 +128,6 @@ export default function CommunityFeedPage({ params }: { params: Promise<{ id: st
     return words.slice(0, wordLimit).join(" ") + "..."
   }
 
-  // Función para unirse/salir de comunidad
   const toggleJoinCommunity = async () => {
     if (!firestoreUser || !community) return
     const userRef = doc(db, "users", firestoreUser.id)
@@ -178,7 +193,6 @@ export default function CommunityFeedPage({ params }: { params: Promise<{ id: st
           </div>
         </div>
 
-        {/* Mostrar botón de crear post solo si está unido */}
         {isJoined && <CreateCommunityPostButton communityId={comunidadId} />}
 
         <div className="w-400 max-w-240 flex flex-col gap-6">
@@ -195,7 +209,7 @@ export default function CommunityFeedPage({ params }: { params: Promise<{ id: st
               No hay posts en esta comunidad.
             </p>
           ) : (
-            filteredPosts.map((post: any) => {
+            filteredPosts.map((post) => {
               const isSaved = savedPosts.some((p) => p.id === post.id)
               return (
                 <div
@@ -208,7 +222,7 @@ export default function CommunityFeedPage({ params }: { params: Promise<{ id: st
 
                     {post.mediaFiles && post.mediaFiles.length > 0 && (
                       <div className={`grid ${post.mediaFiles.length === 1 ? "grid-cols-1" : "grid-cols-2"} gap-4 mt-4 w-full`}>
-                        {post.mediaFiles.map((media: any, idx: number) => (
+                        {post.mediaFiles.map((media, idx) => (
                           <div key={idx} className="h-120 rounded overflow-hidden flex items-center justify-center">
                             {media.type === "video" ? (
                               <video src={media.url} className="max-w-full max-h-full" controls />

@@ -1,37 +1,44 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { collection, query, where, onSnapshot, orderBy } from 'firebase/firestore'
+import { collection, query, where, onSnapshot, orderBy, Timestamp } from 'firebase/firestore'
 import { db } from '@/firebase/client'
 import { useUser } from './useUser'
 
+// Tipado de un post
+export interface UserPost {
+  id: string
+  title: string
+  content: string
+  authorId: string
+  createdAt: Timestamp
+  [key: string]: any // opcional si agregas más campos dinámicos
+}
+
 export function useUserPosts() {
   const { user } = useUser()
-  const [posts, setPosts] = useState<any[]>([])
+  const [posts, setPosts] = useState<UserPost[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // Si no hay usuario, limpia los posts y detén la carga
     if (!user) {
       setPosts([])
       setLoading(false)
       return
     }
 
-    // Referencia a la colección de posts con filtro por usuario y orden descendente
     const q = query(
       collection(db, 'posts'),
       where('authorId', '==', user.uid),
       orderBy('createdAt', 'desc')
     )
 
-    // Escucha en tiempo real los cambios en los posts del usuario
     const unsubscribe = onSnapshot(
       q,
       (snapshot) => {
-        const userPosts = snapshot.docs.map((doc) => ({
+        const userPosts: UserPost[] = snapshot.docs.map((doc) => ({
           id: doc.id,
-          ...doc.data(),
+          ...(doc.data() as Omit<UserPost, 'id'>),
         }))
         setPosts(userPosts)
         setLoading(false)
@@ -43,7 +50,6 @@ export function useUserPosts() {
       }
     )
 
-    // Limpieza al desmontar el componente o cambiar de usuario
     return () => unsubscribe()
   }, [user])
 

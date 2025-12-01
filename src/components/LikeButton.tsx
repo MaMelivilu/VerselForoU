@@ -4,32 +4,40 @@ import { useState, useEffect } from "react";
 import { Heart } from "lucide-react";
 import { db, auth } from "@/firebase/client";
 import { doc, updateDoc, onSnapshot } from "firebase/firestore";
-import { onAuthStateChanged } from "firebase/auth";
+import { onAuthStateChanged, User } from "firebase/auth";
 import { arrayUnion, arrayRemove } from "firebase/firestore";
 
 interface LikeButtonProps {
   videoId: string;
 }
 
+interface VideoData {
+  likes?: string[];
+}
+
 export default function LikeButton({ videoId }: LikeButtonProps) {
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [liked, setLiked] = useState(false);
   const [likeCount, setLikeCount] = useState(0);
 
+  // Detectar usuario
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (u) => setUser(u));
     return () => unsub();
   }, []);
 
+  // Escuchar likes del video
   useEffect(() => {
+    if (!videoId) return;
+
     const videoRef = doc(db, "videos", videoId);
 
     const unsub = onSnapshot(videoRef, (snapshot) => {
-      const data = snapshot.data();
+      const data = snapshot.data() as VideoData | undefined;
 
       if (!data) return;
 
-      const likesArray = data.likes || [];
+      const likesArray = data.likes ?? [];
       setLikeCount(likesArray.length);
 
       if (user) {
@@ -40,19 +48,23 @@ export default function LikeButton({ videoId }: LikeButtonProps) {
     return () => unsub();
   }, [videoId, user]);
 
+  // Acción de like / unlike
   const handleLike = async () => {
-    if (!user) return alert("Debes iniciar sesión para dar like.");
+    if (!user) {
+      alert("Debes iniciar sesión para dar like.");
+      return;
+    }
 
     const videoRef = doc(db, "videos", videoId);
 
-    if (liked) {
-      await updateDoc(videoRef, {
-        likes: arrayRemove(user.uid),
-      });
-    } else {
-      await updateDoc(videoRef, {
-        likes: arrayUnion(user.uid),
-      });
+    try {
+      if (liked) {
+        await updateDoc(videoRef, { likes: arrayRemove(user.uid) });
+      } else {
+        await updateDoc(videoRef, { likes: arrayUnion(user.uid) });
+      }
+    } catch (error) {
+      console.error("Error al actualizar like:", error);
     }
   };
 

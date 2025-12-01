@@ -13,20 +13,36 @@ import VoteButton from "@/components/VoteButton"
 import SideBar from "@/components/SideBar"
 import NotificationsBell from "@/components/NotificationsBell"
 
+type MediaFile = {
+  type: string
+  url: string
+}
+
+type PostType = {
+  id: string
+  title: string
+  content: string
+  comunidadId?: string
+  mediaFiles?: MediaFile[]
+  categories?: string[]
+  authorPhoto?: string
+  authorName?: string
+}
+
 export default function HomePage() {
   const { user } = useUser()
   const router = useRouter()
   const { firestoreUser, loading: userLoading } = useFirestoreUser()
   const { savedPosts, toggleSave, loading: savedLoading } = useSavedPosts()
 
-  const [posts, setPosts] = useState<any[]>([])
-  const [filteredPosts, setFilteredPosts] = useState<any[]>([])
+  const [posts, setPosts] = useState<PostType[]>([])
+  const [filteredPosts, setFilteredPosts] = useState<PostType[]>([])
   const [loadingPosts, setLoadingPosts] = useState(true)
   const [search, setSearch] = useState("")
 
   // NUEVO: logros del usuario
-  const [postsLogro, setPostsLogro] = useState<{current: number, goal: number, level: number} | null>(null)
-  const [commentsLogro, setCommentsLogro] = useState<{ current:number, goal:number, level:number } | null>(null);
+  const [postsLogro, setPostsLogro] = useState<{ current: number; goal: number; level: number } | null>(null)
+  const [commentsLogro, setCommentsLogro] = useState<{ current: number; goal: number; level: number } | null>(null)
 
   // Redirigir si no está logeado
   useEffect(() => {
@@ -37,8 +53,14 @@ export default function HomePage() {
   useEffect(() => {
     const q = query(collection(db, "posts"), orderBy("createdAt", "desc"))
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const postsData = snapshot.docs.map(doc => ({ id: doc.id, ...(doc.data() as any) }))
-      const onlyGeneralPosts = postsData.filter((p: any) => !p.comunidadId)
+      const postsData = snapshot.docs.map(
+        (docSnap) => ({ id: docSnap.id, ...(docSnap.data() as Record<string, unknown>) })
+      )
+
+      const typedPosts: PostType[] = postsData.map((p) => p as unknown as PostType)
+
+      const onlyGeneralPosts = typedPosts.filter((p) => !p.comunidadId)
+
       setPosts(onlyGeneralPosts)
       setFilteredPosts(onlyGeneralPosts)
       setLoadingPosts(false)
@@ -50,37 +72,51 @@ export default function HomePage() {
   useEffect(() => {
     if (!user) return
     const logroRef = doc(db, "users", user.uid, "logros", "posts")
-    const unsubscribe = onSnapshot(logroRef, snap => {
-      if (snap.exists()) setPostsLogro(snap.data() as any)
-      else setPostsLogro(null)
+    const unsubscribe = onSnapshot(logroRef, (snap) => {
+      if (snap.exists()) {
+        setPostsLogro(snap.data() as { current: number; goal: number; level: number })
+      } else {
+        setPostsLogro(null)
+      }
     })
     return () => unsubscribe()
   }, [user])
 
+  // Traer logro de comentarios
   useEffect(() => {
-    if (!user) return;
-    const logroRef = doc(db, "users", user.uid, "logros", "comments");
-    const unsubscribe = onSnapshot(logroRef, snap => {
-      if (snap.exists()) setCommentsLogro(snap.data() as any)
-      else setCommentsLogro({ current: 0, goal: 10, level: 1 });
-    });
-    return () => unsubscribe();
-  }, [user]);
+    if (!user) return
+    const logroRef = doc(db, "users", user.uid, "logros", "comments")
+    const unsubscribe = onSnapshot(logroRef, (snap) => {
+      if (snap.exists()) {
+        setCommentsLogro(snap.data() as { current: number; goal: number; level: number })
+      } else {
+        setCommentsLogro({ current: 0, goal: 10, level: 1 })
+      }
+    })
+    return () => unsubscribe()
+  }, [user])
 
   // Búsqueda
   useEffect(() => {
     const queryStr = search.trim().toLowerCase()
-    if (!queryStr) { setFilteredPosts(posts); return }
+    if (!queryStr) {
+      setFilteredPosts(posts)
+      return
+    }
 
-    const categoriesQuery = queryStr.split(" ").filter(q => q.startsWith("#") && q.length > 1)
-    const textQuery = queryStr.split(" ").filter(q => !q.startsWith("#")).join(" ")
+    const categoriesQuery = queryStr.split(" ").filter((q) => q.startsWith("#") && q.length > 1)
+    const textQuery = queryStr.split(" ").filter((q) => !q.startsWith("#")).join(" ")
 
-    const filtered = posts.filter(post => {
+    const filtered = posts.filter((post) => {
       const titleMatch = textQuery ? post.title.toLowerCase().includes(textQuery) : true
-      const categoriesMatch = categoriesQuery.length ? 
-        categoriesQuery.every(cat => (post.categories || []).some((c:string)=>c.toLowerCase().startsWith(cat))) : true
+      const categoriesMatch = categoriesQuery.length
+        ? categoriesQuery.every((cat) =>
+            (post.categories || []).some((c) => c.toLowerCase().startsWith(cat))
+          )
+        : true
       return titleMatch && categoriesMatch
     })
+
     setFilteredPosts(filtered)
   }, [search, posts])
 
@@ -122,17 +158,24 @@ export default function HomePage() {
               No hay posts que coincidan con la búsqueda.
             </p>
           ) : (
-            filteredPosts.map(post => {
-              const isSaved = savedPosts.some(p => p.id === post.id)
+            filteredPosts.map((post) => {
+              const isSaved = savedPosts.some((p) => p.id === post.id)
               return (
-                <div key={post.id} className="relative bg-white rounded-lg shadow-2xl p-4 flex flex-col gap-4 hover:shadow-lg transition-shadow w-full">
+                <div
+                  key={post.id}
+                  className="relative bg-white rounded-lg shadow-2xl p-4 flex flex-col gap-4 hover:shadow-lg transition-shadow w-full"
+                >
                   <Link href={`/contenidoPost/${post.id}`} className="block">
                     <h2 className="text-lg font-semibold text-gray-800 truncate">{post.title}</h2>
                     <p className="text-gray-600 mt-1">{getPreview(post.content, 20)}</p>
 
                     {post.mediaFiles && post.mediaFiles.length > 0 && (
-                      <div className={`grid ${post.mediaFiles.length === 1 ? "grid-cols-1" : "grid-cols-2"} gap-4 mt-4 w-full`}>
-                        {post.mediaFiles.map((media: any, idx: number) => (
+                      <div
+                        className={`grid ${
+                          post.mediaFiles.length === 1 ? "grid-cols-1" : "grid-cols-2"
+                        } gap-4 mt-4 w-full`}
+                      >
+                        {post.mediaFiles.map((media, idx: number) => (
                           <div key={idx} className="h-120 rounded overflow-hidden flex items-center justify-center">
                             {media.type === "video" ? (
                               <video src={media.url} className="max-w-full max-h-full" controls />
@@ -149,7 +192,11 @@ export default function HomePage() {
                     )}
 
                     <div className="flex items-center gap-2 mt-2">
-                      <img src={post.authorPhoto || "/default-avatar.png"} alt="avatar" className="w-6 h-6 rounded-full" />
+                      <img
+                        src={post.authorPhoto || "/default-avatar.png"}
+                        alt="avatar"
+                        className="w-6 h-6 rounded-full"
+                      />
                       <span className="text-sm text-gray-400">Publicado por {post.authorName}</span>
                     </div>
                   </Link>
@@ -159,12 +206,18 @@ export default function HomePage() {
                     {isSaved ? (
                       <BookmarkCheck
                         className="w-6 h-6 text-yellow-700 cursor-pointer hover:text-yellow-500 transition-colors"
-                        onClick={e => { e.preventDefault(); toggleSave(post.id) }}
+                        onClick={(e) => {
+                          e.preventDefault()
+                          toggleSave(post.id)
+                        }}
                       />
                     ) : (
                       <Bookmark
                         className="w-6 h-6 text-yellow-500 cursor-pointer hover:text-yellow-700 transition-colors"
-                        onClick={e => { e.preventDefault(); toggleSave(post.id) }}
+                        onClick={(e) => {
+                          e.preventDefault()
+                          toggleSave(post.id)
+                        }}
                       />
                     )}
                   </div>
@@ -175,11 +228,10 @@ export default function HomePage() {
         </div>
       </main>
 
-      {/* NUEVO: Panel de logro flotante a la derecha */}
+      {/* Logro de posts */}
       {postsLogro && (
         <div className="fixed top-20 right-6 flex flex-col items-center justify-center p-2">
           <div className="relative w-20 h-20">
-            {/* Círculo de fondo y progreso */}
             <svg className="w-full h-full rotate-[-90deg]" viewBox="0 0 100 100">
               <circle cx="50%" cy="50%" r={47} fill="none" stroke="#e5e7ebff" strokeWidth="6" />
               <circle
@@ -194,27 +246,19 @@ export default function HomePage() {
                 style={{ transition: "stroke-dashoffset 0.5s ease-out" }}
               />
             </svg>
-
-            {/* Icono central */}
-            <div className="absolute inset-0 flex items-center justify-center text-lg select-none">
-              📝
-            </div>
+            <div className="absolute inset-0 flex items-center justify-center text-lg select-none">📝</div>
           </div>
-
-          {/* Texto debajo */}
-          <div className="text-xs text-gray-600 mt-1 text-center">
-            Publica posts
-          </div>
+          <div className="text-xs text-gray-600 mt-1 text-center">Publica posts</div>
           <div className="text-[10px] text-gray-400">
             {postsLogro.current}/{postsLogro.goal} | Nivel {postsLogro.level}
           </div>
         </div>
       )}
 
+      {/* Logro de comentarios */}
       {commentsLogro && (
         <div className="fixed top-[220px] right-6 flex flex-col items-center justify-center p-2">
           <div className="relative w-20 h-20">
-            {/* Círculo de fondo y progreso */}
             <svg className="w-full h-full rotate-[-90deg]" viewBox="0 0 100 100">
               <circle cx="50" cy="50" r={47} fill="none" stroke="#e5e7ebff" strokeWidth={6} />
               <circle
@@ -222,7 +266,7 @@ export default function HomePage() {
                 cy="50"
                 r={47}
                 fill="none"
-                stroke="#f97316"  // Naranja para diferenciar del azul de posts
+                stroke="#f97316"
                 strokeWidth={6}
                 strokeDasharray={2 * Math.PI * 47}
                 strokeDashoffset={2 * Math.PI * 47 * (1 - commentsLogro.current / commentsLogro.goal)}
@@ -230,23 +274,16 @@ export default function HomePage() {
                 style={{ transition: "stroke-dashoffset 0.5s ease-out" }}
               />
             </svg>
-
-            {/* Icono central */}
-            <div className="absolute inset-0 flex items-center justify-center text-lg select-none">
-              🗨️
-            </div>
+            <div className="absolute inset-0 flex items-center justify-center text-lg select-none">🗨️</div>
           </div>
-
-          {/* Texto debajo */}
-          <div className="text-xs text-gray-600 mt-1 text-center">
-            Comenta!!
-          </div>
+          <div className="text-xs text-gray-600 mt-1 text-center">Comenta!!</div>
           <div className="text-[10px] text-gray-400">
             {commentsLogro.current}/{commentsLogro.goal} | Nivel {commentsLogro.level}
           </div>
         </div>
       )}
 
+      {/* Notificaciones */}
       <div className="relative flex mt-8 mr-50">
         <NotificationsBell />
       </div>

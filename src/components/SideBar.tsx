@@ -1,7 +1,7 @@
 'use client'
 
 import Link from "next/link"
-import { LogOut, House, PencilLine, Users, Video, Star, ScrollText, Info, BookOpen } from "lucide-react"
+import { LogOut, House, PencilLine, Users, Video, Star, ScrollText, BookOpen } from "lucide-react"
 import { logout } from "@/firebase/client"
 import { useUser } from "@/hooks/useUser"
 import { useFirestoreUser } from "@/hooks/useFirestoreUser"
@@ -24,7 +24,7 @@ export default function SideBar() {
               alt="avatar"
               className="w-12 h-12 rounded-full object-cover object-center"
             />
-            <span className="font-semibold">{firestoreUser.displayName}</span>
+            <span className="font-semibold">{firestoreUser.displayName || "Usuario"}</span>
           </div>
         </Link>
       )}
@@ -47,8 +47,6 @@ export default function SideBar() {
         Crear Post
       </Link>
 
-
-
       {/* COMUNIDADES */}
       <Link
         href="/comunidades"
@@ -58,56 +56,50 @@ export default function SideBar() {
         Comunidades
       </Link>
 
-      {/* 🔥 ForoShorts restaurado */}
+      {/* FOROSHORTS */}
+      <Link
+        href="/videos"
+        className="mt-4 px-3 py-2 text-gray-600 text-[18px] rounded hover:bg-gray-100 flex items-center gap-2"
+      >
+        <Video className="mr-2" />
+        ForoShorts
+      </Link>
+
+      {/* FAVORITOS */}
+      <Link
+        href="/saved"
+        className="mt-4 px-3 py-2 text-gray-600 text-[18px] rounded hover:bg-gray-100 flex items-center gap-2"
+      >
+        <Star className="mr-2" />
+        Favoritos
+      </Link>
+
+      <div className="mt-auto flex flex-col">
         <Link
-          href="/videos"
-          className="mt-4 px-3 py-2 text-gray-600 text-[18px] rounded hover:bg-gray-100 flex items-center gap-2"
+          href="/info/acerca"
+          className="mb-4 px-3 py-2 text-gray-600 text-[18px] rounded hover:bg-gray-100 flex items-center gap-2"
         >
-          <Video className="mr-2" />
-          ForoShorts
+          <BookOpen className="mr-2" />
+          Acerca de ForoU
         </Link>
 
-        {/* ⭐ Favoritos */}
         <Link
-          href="/saved"
-          className="mt-4 px-3 py-2 text-gray-600 text-[18px] rounded hover:bg-gray-100 flex items-center gap-2"
+          href="/info/reglas"
+          className="mb-7 px-3 py-2 text-gray-600 text-[18px] rounded hover:bg-gray-100 flex items-center gap-2"
         >
-          <Star className="mr-2" />
-          Favoritos
+          <ScrollText className="mr-2" />
+          Reglas ForoU
         </Link>
 
-        <div className="mt-auto flex flex-col">
-
-          <Link
-            href="/info/acerca"
-            className="mb-4 px-3 py-2 text-gray-600 text-[18px] rounded hover:bg-gray-100 flex items-center gap-2"
-          >
-            <BookOpen className="mr-2" />
-            Acerca de ForoU
-          </Link>
-
-
-          
-          <Link
-            href="/info/reglas"
-            className="mb-7 px-3 py-2 text-gray-600 text-[18px] rounded hover:bg-gray-100 flex items-center gap-2"
-          >
-            <ScrollText className="mr-2" />
-            Reglas ForoU
-          </Link>
-
-
-
-
-          {/* LOGOUT */}
-          <button
-            onClick={() => logout(router)}
-            className="mt-auto px-3 py-2 text-red-400 rounded hover:bg-gray-100 hover:text-red-500 text-[18px] flex items-center gap-2"
-          >
-            <LogOut className="mr-2" />
-            Cerrar sesión
-          </button>
-        </div>
+        {/* LOGOUT */}
+        <button
+          onClick={() => logout(router)}
+          className="mt-auto px-3 py-2 text-red-400 rounded hover:bg-gray-100 hover:text-red-500 text-[18px] flex items-center gap-2"
+        >
+          <LogOut className="mr-2" />
+          Cerrar sesión
+        </button>
+      </div>
     </aside>
   )
 }

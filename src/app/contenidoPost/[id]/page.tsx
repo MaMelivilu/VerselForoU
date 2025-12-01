@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, use } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { 
   doc, 
@@ -13,6 +13,7 @@ import {
   serverTimestamp, 
   setDoc 
 } from "firebase/firestore";
+import { Timestamp } from "firebase/firestore";
 import { db } from "@/firebase/client";
 import { useUser } from "@/hooks/useUser";
 import { useFirestoreUser } from "@/hooks/useFirestoreUser";
@@ -20,31 +21,37 @@ import VoteButton from "@/components/VoteButton";
 import SideBar from "@/components/SideBar";
 
 interface PostPageProps {
-  params: Promise<{ id: string }>;
+  params: { id: string };
 }
 
 interface Post {
   title: string;
   content: string;
   mediaFiles?: { type: "image" | "video"; url: string }[];
-  authorId: string;        // ← CAMBIADO AQUÍ
+  authorId: string;
   authorName: string;
   authorPhoto: string;
-  createdAt: any;
+  createdAt: Timestamp | null;
   categories: string[];
 }
 
 interface Comment {
   id: string;
   text: string;
-  authorId: string;        // ← CAMBIADO AQUÍ
+  authorId: string;
   authorName: string;
   authorPhoto: string;
-  createdAt: any;
+  createdAt: Timestamp | null;
+}
+
+interface LogroData {
+  current: number;
+  goal: number;
+  level: number;
 }
 
 export default function PostPage({ params }: PostPageProps) {
-  const { id } = use(params);
+  const { id } = params;
   const { user } = useUser();
   const { firestoreUser } = useFirestoreUser();
   const router = useRouter();
@@ -86,17 +93,18 @@ export default function PostPage({ params }: PostPageProps) {
     const q = query(commentsRef, orderBy("createdAt", "desc"));
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const commentsData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as Comment[];
+      const commentsData = snapshot.docs.map((docSnap) => ({
+        id: docSnap.id,
+        ...(docSnap.data() as Omit<Comment, "id">),
+      }));
+
       setComments(commentsData);
     });
 
     return () => unsubscribe();
   }, [post, id]);
 
-  // Agregar comentario + actualización de logro + notificaciones
+  // Agregar comentario
   const handleAddComment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!commentText.trim() || !firestoreUser || !post) return;
@@ -104,10 +112,9 @@ export default function PostPage({ params }: PostPageProps) {
     try {
       const commentsRef = collection(db, "posts", id, "comments");
 
-      // Agregar comentario
       await addDoc(commentsRef, {
         text: commentText,
-        authorId: firestoreUser.id,              // ← CAMBIADO
+        authorId: firestoreUser.id,
         authorName: firestoreUser.displayName,
         authorPhoto: firestoreUser.photoURL,
         createdAt: serverTimestamp()
@@ -115,34 +122,29 @@ export default function PostPage({ params }: PostPageProps) {
 
       setCommentText("");
 
-      // Actualizar logro
+      // Logro
       const logroRef = doc(db, "users", firestoreUser.id, "logros", "comments");
       const snap = await getDoc(logroRef);
 
-      let current = 1;
-      let level = 1;
-      let goal = 10;
-      let leveledUp = false;
+      let logro: LogroData = { current: 1, goal: 10, level: 1 };
 
       if (snap.exists()) {
-        const data = snap.data() as any;
-        current = data.current + 1;
-        level = data.level;
-        goal = data.goal;
+        const data = snap.data() as LogroData;
+        logro = { ...data, current: data.current + 1 };
 
-        if (current > goal) {
-          level += 1;
-          current = 0;
-          goal += 10;
-          leveledUp = true;
+        if (logro.current > logro.goal) {
+          logro.level += 1;
+          logro.current = 0;
+          logro.goal += 10;
         }
       }
 
-      await setDoc(logroRef, { current, goal, level });
+      await setDoc(logroRef, logro);
 
-      // Notificación al autor del post
-      if (firestoreUser.id !== post.authorId) {    // ← CAMBIADO
+      // Notificación al autor
+      if (firestoreUser.id !== post.authorId) {
         const notifRef = doc(collection(db, `users/${post.authorId}/notifications`));
+
         await setDoc(notifRef, {
           type: "new_comment",
           postId: id,
@@ -155,22 +157,12 @@ export default function PostPage({ params }: PostPageProps) {
         });
       }
 
-      // Notificación por subir de nivel
-      if (leveledUp) {
-        const notifRef = doc(collection(db, `users/${firestoreUser.id}/notifications`));
-        await setDoc(notifRef, {
-          type: "level_up_comment",
-          message: `🗨️ Has subido al nivel ${level}`,
-          createdAt: serverTimestamp(),
-          isRead: false
-        });
-      }
-
     } catch (error) {
-      console.error("Error al agregar comentario o actualizar logro:", error);
+      console.error("Error al agregar comentario:", error);
     }
   };
 
+  // LOADING
   if (loading) return (
     <div className="flex items-center justify-center h-screen bg-gray-100">
       <div className="bg-white p-10 rounded-lg shadow-lg flex flex-col items-center">
@@ -180,6 +172,7 @@ export default function PostPage({ params }: PostPageProps) {
     </div>
   );
 
+  // POST NO ENCONTRADO
   if (!post) return (
     <div className='grid place-items-center place-content-center h-screen'>
       <main className='grid place-items-center place-content-center bg-white rounded-[10px] shadow-[0_10px_25px_rgba(0,0,0,0.3)] p-6 h-[90vh] w-[70vh]'>
@@ -203,27 +196,21 @@ export default function PostPage({ params }: PostPageProps) {
             ×
           </button>
 
-          {/* Post */}
           <h1 className="text-2xl font-bold text-gray-800">{post.title}</h1>
           <p className="text-gray-700 mt-2">{post.content}</p>
 
-          {/* Multimedia */}
           {post.mediaFiles && post.mediaFiles.length > 0 && (
             <div className="flex flex-col gap-4 mt-4">
-              {post.mediaFiles.map((media, idx) => media.type === "video" ? (
-                <video key={idx} src={media.url} className="rounded border" controls />
-              ) : (
-                <img key={idx} src={media.url} alt={`media-${idx}`} className="object-cover rounded border" />
-              ))}
+              {post.mediaFiles.map((media, idx) =>
+                media.type === "video" ? (
+                  <video key={idx} src={media.url} className="rounded border" controls />
+                ) : (
+                  <img key={idx} src={media.url} alt="" className="object-cover rounded border" />
+                )
+              )}
             </div>
           )}
 
-          {/* Categorías */}
-          {post.categories && post.categories.length > 0 && (
-            <div className="mt-2 text-sm text-gray-400">{post.categories.join(", ")}</div>
-          )}
-
-          {/* Autor */}
           <div className="flex items-center justify-between gap-2 mt-4">
             <div className="flex items-center gap-2">
               <img src={post.authorPhoto || "/default-avatar.png"} alt="avatar" className="w-8 h-8 rounded-full"/>
@@ -233,7 +220,6 @@ export default function PostPage({ params }: PostPageProps) {
             <VoteButton postId={id} />
           </div>
 
-          {/* Comentarios */}
           <form onSubmit={handleAddComment} className="mt-4 flex gap-2">
             <input
               type="text"
@@ -245,7 +231,7 @@ export default function PostPage({ params }: PostPageProps) {
           </form>
 
           <div className="mt-4 flex flex-col gap-3">
-            {comments.map(c => (
+            {comments.map((c) => (
               <div key={c.id} className="flex gap-2 items-start bg-gray-50 p-2 rounded">
                 <img src={c.authorPhoto || "/default-avatar.png"} alt="avatar" className="w-8 h-8 rounded-full"/>
                 <div>

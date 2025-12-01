@@ -4,15 +4,14 @@ import { useState, useEffect } from "react"
 import { Bell, X } from "lucide-react"
 import { db } from "@/firebase/client"
 import { useUser } from "@/hooks/useUser"
-import { collection, query, orderBy, onSnapshot, updateDoc, doc, deleteDoc } from "firebase/firestore"
+import { collection, query, orderBy, onSnapshot, updateDoc, doc, deleteDoc, Timestamp } from "firebase/firestore"
 
 interface Notification {
   id: string
   type: string
   message: string
-  createdAt: any
+  createdAt: Timestamp
   isRead: boolean
-  [key: string]: any
 }
 
 export default function NotificationsBell() {
@@ -20,7 +19,6 @@ export default function NotificationsBell() {
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [open, setOpen] = useState(false)
 
-  // 🔔 Escuchar notificaciones en tiempo real
   useEffect(() => {
     if (!user) return
 
@@ -30,17 +28,22 @@ export default function NotificationsBell() {
     )
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const nots = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...(doc.data() as Notification)
-      }))
+      const nots: Notification[] = snapshot.docs.map(doc => {
+        const data = doc.data()
+        return {
+          id: doc.id,
+          type: data.type,
+          message: data.message,
+          createdAt: data.createdAt as Timestamp,
+          isRead: data.isRead
+        }
+      })
       setNotifications(nots)
     })
 
     return () => unsubscribe()
   }, [user])
 
-  // Marcar todas como leídas al abrir la lista
   const handleOpen = async () => {
     setOpen(!open)
     if (!open) {
@@ -62,7 +65,6 @@ export default function NotificationsBell() {
 
   return (
     <div className="relative">
-      {/* Campana */}
       <button onClick={handleOpen} className="relative focus:outline-none">
         <Bell className={`cursor-pointer w-6 h-6 transition-colors ${unreadCount > 0 ? 'text-red-500' : 'text-gray-500'}`} />
         {unreadCount > 0 && (
@@ -72,7 +74,6 @@ export default function NotificationsBell() {
         )}
       </button>
 
-      {/* Lista de notificaciones */}
       {open && (
         <div className="absolute right-0 mt-2 w-80 max-h-96 overflow-y-auto bg-white border border-gray-300 rounded shadow-lg z-50">
           {notifications.length === 0 ? (
@@ -84,7 +85,7 @@ export default function NotificationsBell() {
                   <p className={`text-sm ${notif.isRead ? 'text-gray-500' : 'text-gray-800 font-medium'}`}>
                     {notif.message}
                   </p>
-                  <span className="text-xs text-gray-400">{notif.createdAt?.toDate?.()?.toLocaleString()}</span>
+                  <span className="text-xs text-gray-400">{notif.createdAt.toDate().toLocaleString()}</span>
                 </div>
                 <button onClick={() => handleDelete(notif.id)}>
                   <X className="w-4 h-4 text-gray-400 hover:text-red-500" />

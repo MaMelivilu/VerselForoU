@@ -2,22 +2,49 @@
 
 import { useEffect, useRef, useState } from "react";
 import { db } from "@/firebase/client";
-import { collection, onSnapshot } from "firebase/firestore";
+import { collection, onSnapshot, DocumentData } from "firebase/firestore";
 import LikeButton from "@/components/LikeButton";
 import UploadVideo from "@/app/videos/subir/page";
 import { PlusCircle } from "lucide-react";
 import SideBar from "@/components/SideBar";
 
+interface VideoData {
+  id: string;
+  title: string;
+  description: string;
+  videoURL: string;
+  username: string;
+  usernamePhoto?: string;
+  createdAt?: { seconds: number; nanoseconds: number };
+}
+
 export default function ForoShorts() {
-  const [videos, setVideos] = useState<any[]>([]);
+  const [videos, setVideos] = useState<VideoData[]>([]);
   const [showUpload, setShowUpload] = useState(false);
   const videoRefs = useRef<HTMLVideoElement[]>([]);
-  const [volumeLevels, setVolumeLevels] = useState<{ [key: number]: number }>({});
+  const [volumeLevels, setVolumeLevels] = useState<Record<number, number>>({});
 
   useEffect(() => {
     const unsub = onSnapshot(collection(db, "videos"), (snapshot) => {
-      const list = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
-      list.sort((a, b) => b.createdAt?.seconds - a.createdAt?.seconds);
+      const list: VideoData[] = snapshot.docs.map((d) => {
+        const data = d.data() as DocumentData;
+
+        return {
+          id: d.id,
+          title: data.title,
+          description: data.description,
+          videoURL: data.videoURL,
+          username: data.username,
+          usernamePhoto: data.usernamePhoto,
+          createdAt: data.createdAt,
+        };
+      });
+
+      list.sort(
+        (a, b) =>
+          (b.createdAt?.seconds ?? 0) - (a.createdAt?.seconds ?? 0)
+      );
+
       setVideos(list);
     });
 
@@ -36,6 +63,7 @@ export default function ForoShorts() {
 
   const handleVolumeChange = (index: number, value: number) => {
     const video = videoRefs.current[index];
+
     if (video) {
       video.volume = value;
       video.muted = value === 0;
@@ -45,17 +73,17 @@ export default function ForoShorts() {
 
   return (
     <div className="flex bg-white min-h-screen">
-
-      {/* 👉 SIDEBAR (solo en pantallas medianas o grandes) */}
+      {/* Sidebar */}
       <div className="hidden md:block">
         <SideBar />
       </div>
 
-      {/* 👉 CONTENIDO PRINCIPAL */}
-      <div className="flex flex-col items-center w-full ml-0 md:ml-64 
-                      overflow-y-auto snap-y snap-mandatory scroll-smooth relative">
-
-        {/* Título + botón subir */}
+      {/* CONTENIDO PRINCIPAL */}
+      <div
+        className="flex flex-col items-center w-full ml-0 md:ml-64 
+                    overflow-y-auto snap-y snap-mandatory scroll-smooth relative"
+      >
+        {/* Título + Botón subir */}
         <div className="flex items-center gap-3 my-4">
           <h1 className="text-black text-2xl font-bold">ForoShorts</h1>
           <button
@@ -66,7 +94,7 @@ export default function ForoShorts() {
           </button>
         </div>
 
-        {/* Subir video modal */}
+        {/* Modal subir video */}
         {showUpload && (
           <div className="fixed inset-0 flex justify-center items-center bg-black/20 z-50">
             <div className="bg-white p-4 rounded-xl shadow-lg relative">
@@ -81,7 +109,7 @@ export default function ForoShorts() {
           </div>
         )}
 
-        {/* LISTA DE VIDEOS */}
+        {/* Lista de videos */}
         {videos.map((v, i) => (
           <div
             key={v.id}
@@ -139,17 +167,7 @@ export default function ForoShorts() {
             <div className="p-4 w-full text-black bg-gradient-to-t from-black/90 to-transparent absolute bottom-0 h-38">
               <h2 className="font-semibold mt-9 text-gray-100 text-lg">{v.title}</h2>
 
-              <p
-                className="
-                  text-gray-300 
-                  mb-2 
-                  max-w-full 
-                  leading-tight 
-                  break-words 
-                  overflow-hidden 
-                  line-clamp-2
-                "
-              >
+              <p className="text-gray-300 mb-2 max-w-full leading-tight break-words overflow-hidden line-clamp-2">
                 {v.description}
               </p>
 

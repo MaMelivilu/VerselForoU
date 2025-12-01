@@ -1,16 +1,28 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import React from "react";
 import { db } from "@/firebase/client";
 import { doc, getDoc } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 import LikeButton from "@/components/LikeButton";
 
-export default function VideoDetailPage({ params }: any) {
-  const { id } = React.use(params as Promise<{ id: string }>);
+interface VideoPageProps {
+  params: { id: string };
+}
 
-  const [video, setVideo] = useState<any>(null);
+interface VideoData {
+  id: string;
+  title: string;
+  description: string;
+  videoURL: string;
+  username: string;
+  usernamePhoto?: string;
+}
+
+export default function VideoDetailPage({ params }: VideoPageProps) {
+  const { id } = params;
+
+  const [video, setVideo] = useState<VideoData | null>(null);
   const [loading, setLoading] = useState(true);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const router = useRouter();
@@ -19,9 +31,19 @@ export default function VideoDetailPage({ params }: any) {
     const getVideo = async () => {
       try {
         const snap = await getDoc(doc(db, "videos", id));
+
         if (snap.exists()) {
-          setVideo({ id: snap.id, ...snap.data() });
+          const data = snap.data();
+          setVideo({
+            id: snap.id,
+            title: data.title,
+            description: data.description,
+            videoURL: data.videoURL,
+            username: data.username,
+            usernamePhoto: data.usernamePhoto,
+          });
         }
+
         setLoading(false);
       } catch (err) {
         console.error(err);

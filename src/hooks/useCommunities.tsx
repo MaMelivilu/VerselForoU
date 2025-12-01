@@ -1,7 +1,7 @@
-"use client";
+'use client';
 
 import { useEffect, useState } from "react";
-import { collection, onSnapshot } from "firebase/firestore";
+import { collection, onSnapshot, Timestamp } from "firebase/firestore";
 import { db } from "@/firebase/client";
 
 // Tipo actualizado de comunidad
@@ -11,10 +11,10 @@ export interface Community {
   descripcion: string;
   bannerUrl: string;
   creatorId: string;
-  creatorName: string;       // ⭐ NUEVO
-  creatorPhoto?: string | null; // ⭐ NUEVO
+  creatorName: string;      
+  creatorPhoto?: string | null; 
   miembrosCount: number;
-  createdAt?: any;
+  createdAt?: Timestamp | null; // ⚡ Evita `any`
 }
 
 export function useCommunities() {
