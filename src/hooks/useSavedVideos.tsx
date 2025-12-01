@@ -5,11 +5,12 @@ import { db } from "@/firebase/client"
 import { collection, query, where, onSnapshot, doc, updateDoc, deleteDoc } from "firebase/firestore"
 import { useUser } from "./useUser"
 
+// Definimos Video con propiedades conocidas y opcionales como Record<string, unknown>
 interface Video {
   id: string
   userId: string
   likes: string[]
-  [key: string]: any // Para otras propiedades que pueda tener el video
+  [key: string]: unknown
 }
 
 export function useSavedVideos() {
@@ -32,7 +33,7 @@ export function useSavedVideos() {
       setMyVideos(
         snap.docs.map((d) => ({
           id: d.id,
-          ...(d.data() as Omit<Video, "id">), // tipado seguro
+          ...(d.data() as Omit<Video, "id">),
         }))
       )
     })

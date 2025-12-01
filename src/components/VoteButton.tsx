@@ -4,14 +4,14 @@ import { useState, useEffect } from "react"
 import { ArrowBigUp } from "lucide-react"
 import { db, auth } from "@/firebase/client"
 import { doc, setDoc, deleteDoc, onSnapshot, collection } from "firebase/firestore"
-import { onAuthStateChanged } from "firebase/auth"
+import { onAuthStateChanged, User } from "firebase/auth"
 
 interface VoteButtonProps {
   postId: string
 }
 
 export default function VoteButton({ postId }: VoteButtonProps) {
-  const [user, setUser] = useState<any>(null)
+  const [user, setUser] = useState<User | null>(null)
   const [voted, setVoted] = useState(false)
   const [voteCount, setVoteCount] = useState(0)
 
@@ -30,6 +30,8 @@ export default function VoteButton({ postId }: VoteButtonProps) {
       setVoteCount(snapshot.size)
       if (user) {
         setVoted(snapshot.docs.some(doc => doc.id === user.uid))
+      } else {
+        setVoted(false)
       }
     })
     return () => unsubscribe()
@@ -49,9 +51,7 @@ export default function VoteButton({ postId }: VoteButtonProps) {
   return (
     <div className="flex items-center gap-1 cursor-pointer select-none">
       <ArrowBigUp
-        className={`w-6 h-6 transition-colors ${
-          voted ? "text-blue-600 fill-current" : "text-gray-400"
-        }`}
+        className={`w-6 h-6 transition-colors ${voted ? "text-blue-600 fill-current" : "text-gray-400"}`}
         onClick={handleVote}
       />
       <span className="text-sm text-gray-700">{voteCount}</span>
